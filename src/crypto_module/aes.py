@@ -6,7 +6,7 @@ import hashlib
 class AES:
     def __init__(self, password, salt, key_len=256):
         self.block_size = 16
-        self.salt = salt
+        self.salt = salt.encode("UTF-8")
         self.key_len = key_len
         self.password = password.encode("UTF-8")
         self.key, self.hmac_key = self.KeyGeneration(self.password, self.salt)
@@ -37,7 +37,7 @@ class AES:
         n_bytes = self.key_len // 8
         
         key_bytes = hashlib.scrypt(
-            password, salt=salt, n=2**15, r=8, p=1, maxmem=2**26, dklen=n_bytes*2
+            password=password, salt=salt, n=2**15, r=8, p=1, maxmem=2**26, dklen=n_bytes*2
         )
         
         encryption_key = key_bytes[:n_bytes]
@@ -108,7 +108,17 @@ class AES:
         return state
     
     def encrypt(self, plaintext):
-        assert len(plaintext) == self.block_size, "Plaintext must be 128 bits."
+        # assert len(plaintext) == self.block_size, "Plaintext must be 128 bits."
+        # convert plaintext to self.block_size
+        if len(plaintext) < self.block_size:
+            plaintext += b"\x00" * (self.block_size - len(plaintext))
+
+        if len(plaintext) > self.block_size:
+            # encrypt each block
+            blocks = []
+            for i in range(0, len(plaintext), self.block_size):
+                blocks.append(self.encrypt(plaintext[i:i+self.block_size]))
+            return b"".join(blocks)
 
         # Create the state
         state = (
